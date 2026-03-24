@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI 浪漫语音生成器</title>
+  <style>
+    :root {
+      --bg1: #fff8f0;
+      --bg2: #ffe6ea;
+      --card: #ffffffcc;
+      --text: #2c1f2e;
+      --muted: #6b5a6e;
+      --accent: #e94e77;
+      --accent-hover: #d63f68;
+      --ok: #0f9d58;
+      --err: #c62828;
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", system-ui, -apple-system, sans-serif;
+      color: var(--text);
+      background: linear-gradient(135deg, var(--bg1), var(--bg2));
+      min-height: 100vh;
+      display: grid;
+      place-items: start center;
+      padding: 18px 12px 32px;
+    }
+    .app {
+      width: min(100%, 390px);
+      background: var(--card);
+      backdrop-filter: blur(8px);
+      border: 1px solid #ffffff80;
+      border-radius: 24px;
+      padding: 18px;
+      box-shadow: 0 18px 48px rgba(124, 58, 90, 0.14);
+      margin: 0 auto;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(2rem, 7vw, 2.6rem);
+      line-height: 1.05;
+    }
+    .hint { margin: 0 0 12px; color: var(--muted); font-size: 0.94rem; line-height: 1.45; }
+    .top-link { margin: 0 0 8px; }
+    .top-link a { color: #b43f63; font-size: 0.92rem; text-decoration: none; }
+    .top-link a:hover { text-decoration: underline; }
+    textarea {
+      width: 100%;
+      min-height: 132px;
+      resize: vertical;
+      border: 2px solid #f4c8d3;
+      border-radius: 16px;
+      padding: 14px 15px;
+      font-size: 0.98rem;
+      line-height: 1.5;
+      outline: none;
+      background: #fff;
+    }
+    textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #e94e7728; }
+    .row {
+      margin-top: 12px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+    .row label { font-size: 0.92rem; color: var(--muted); }
+    .row select {
+      width: 100%;
+      border: 2px solid #f4c8d3;
+      border-radius: 14px;
+      padding: 11px 12px;
+      font-size: 0.95rem;
+      background: #fff;
+      outline: none;
+    }
+    .row select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #e94e7728; }
+    button {
+      width: 100%;
+      margin-top: 14px;
+      padding: 15px 16px;
+      border: 0;
+      border-radius: 16px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 1.06rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.05s ease;
+    }
+    button:hover { background: var(--accent-hover); }
+    button:active { transform: translateY(1px); }
+    button[disabled] { opacity: 0.6; cursor: not-allowed; }
+    .status {
+      margin-top: 12px;
+      min-height: 24px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: #fff;
+      border: 1px solid #f1d8de;
+      color: var(--muted);
+      font-size: 0.95rem;
+      word-break: break-word;
+    }
+    .status.ok { color: var(--ok); border-color: #b8e5cc; background: #f3fff8; }
+    .status.err { color: var(--err); border-color: #f2c4c4; background: #fff5f5; }
+    audio { display: none; }
+
+    /* Audio Player Card - 音频播放卡片 */
+    .audio-player {
+      --sp-xs: 8px;
+      --sp-sm: 12px;
+      --sp-md: 16px;
+      --sp-lg: 20px;
+      --radius-sm: 10px;
+      --radius-md: 12px;
+      --color-brand: #e94e77;
+      --color-brand-hover: #d63f68;
+      --color-border: #f1d8de;
+      --color-text-primary: #2c1f2e;
+      --color-text-secondary: #6b5a6e;
+      --color-text-muted: #a89ba5;
+      --color-bg-stage: #fce5ec;
+      --color-bg-stage-active: #f8bbd0;
+
+      margin-top: var(--sp-lg);
+      background: #fff;
+      border: 1px solid var(--color-border);
+      border-radius: 18px;
+      padding: var(--sp-lg);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-lg);
+    }
+
+    /* 主播放区域：按钮、时间、进度条 */
+    .player-main {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: var(--sp-md);
+      align-items: flex-start;
+    }
+
+    /* 播放按钮 */
+    .play-button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--sp-xs);
+      width: 48px;
+      height: 48px;
+      flex-shrink: 0;
+      border: none;
+      border-radius: var(--radius-sm);
+      background: var(--color-brand);
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      padding: 0;
+    }
+
+    .play-button:hover {
+      background: var(--color-brand-hover);
+      transform: scale(1.05);
+    }
+
+    .play-button:active {
+      transform: scale(0.98);
+    }
+
+    .play-button[disabled] {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: scale(1);
+    }
+
+    .play-button .play-icon {
+      font-size: 1.1rem;
+      display: inline-block;
+    }
+
+    /* 进度条区域 */
+    .progress-section {
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-sm);
+      width: 100%;
+    }
+
+    /* 时间显示 */
+    .time-text {
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--color-text-primary);
+      letter-spacing: 0.2px;
+      text-align: left;
+      min-height: 1.5em;
+      line-height: 1.5;
+    }
+
+    /* 进度条输入 */
+    .progress-bar {
+      width: 100%;
+      height: 5px;
+      margin: 0;
+      padding: 0;
+      appearance: none;
+      -webkit-appearance: none;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      outline: none;
+      background-color: #e8d4db;
+      background-image: linear-gradient(to right, var(--color-brand) 0%, var(--color-brand) var(--progress, 0%), #e8d4db var(--progress, 0%), #e8d4db 100%);
+      background-repeat: no-repeat;
+      background-size: 100% 100%;
+    }
+
+    .progress-bar::-webkit-slider-thumb {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--color-brand);
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(233, 78, 119, 0.3);
+      border: none;
+      transition: all 0.2s ease;
+    }
+
+    .progress-bar::-webkit-slider-thumb:hover {
+      width: 16px;
+      height: 16px;
+      box-shadow: 0 2px 6px rgba(233, 78, 119, 0.4);
+    }
+
+    .progress-bar::-webkit-slider-thumb:active {
+      transform: scale(0.95);
+    }
+
+    .progress-bar::-moz-range-track {
+      background: transparent;
+      border: none;
+      box-shadow: none;
+    }
+
+    .progress-bar::-moz-range-progress {
+      background: var(--color-brand);
+      border-radius: 3px;
+      height: 5px;
+    }
+
+    .progress-bar::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--color-brand);
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(233, 78, 119, 0.3);
+      border: none;
+      transition: all 0.2s ease;
+    }
+
+    .progress-bar::-moz-range-thumb:hover {
+      width: 16px;
+      height: 16px;
+      box-shadow: 0 2px 6px rgba(233, 78, 119, 0.4);
+    }
+
+    .progress-bar::-moz-range-thumb:active {
+      transform: scale(0.95);
+    }
+
+    /* 阶段指示器轨道 */
+    .stages-track {
+      display: flex;
+      gap: var(--sp-sm);
+      align-items: center;
+      justify-content: space-between;
+      padding: 0;
+      min-height: 32px;
+    }
+
+    /* 单个阶段标签 */
+    .stage-badge {
+      flex: 1;
+      padding: 6px 8px;
+      border-radius: var(--radius-sm);
+      background: #f5f0f3;
+      border: 1px solid #e8d4db;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--color-text-muted);
+      text-align: center;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+
+    .stage-badge:hover {
+      background: var(--color-bg-stage);
+      border-color: #f8bbd0;
+      color: var(--color-brand);
+    }
+
+    /* 激活的阶段 */
+    .stage-badge.active {
+      background: var(--color-bg-stage-active);
+      border-color: var(--color-brand);
+      color: var(--color-brand);
+      font-weight: 600;
+      box-shadow: 0 2px 4px rgba(233, 78, 119, 0.15);
+    }
+
+    /* 已完成的阶段 */
+    .stage-badge.completed {
+      background: #f0e8eb;
+      border-color: #d9c8d4;
+      color: #7b667f;
+    }
+    .subtitle-box {
+      margin-top: 12px;
+      border: 1px solid #f1d8de;
+      background: #fff;
+      border-radius: 18px;
+      padding: 12px;
+    }
+    .subtitle-title { margin: 0 0 8px; font-size: 0.9rem; color: var(--muted); }
+    .subtitle-current {
+      margin: 0;
+      min-height: 2.2em;
+      font-size: 1.05rem;
+      line-height: 1.6;
+      color: var(--text);
+      font-weight: 600;
+    }
+    .subtitle-full {
+      margin: 8px 0 0;
+      max-height: 220px;
+      overflow: auto;
+      font-size: 0.92rem;
+      line-height: 1.6;
+      color: #745f78;
+      border-top: 1px dashed #efd7df;
+      padding-top: 8px;
+    }
+    .subtitle-line {
+      padding: 6px 8px;
+      border-radius: 8px;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .subtitle-line.active {
+      background: #fce5ec;
+      color: #2c1f2e;
+      font-weight: 700;
+    }
+    .small { margin-top: 10px; font-size: 0.82rem; color: var(--muted); line-height: 1.5; }
+    @media (max-width: 480px) {
+      body {
+        padding: 10px 8px 24px;
+      }
+      .app {
+        width: 100%;
+        border-radius: 18px;
+        padding: 14px;
+      }
+      h1 {
+        font-size: 1.9rem;
+      }
+      .audio-player {
+        --sp-md: 12px;
+        --sp-lg: 14px;
+        padding: 14px;
+      }
+      .player-main {
+        grid-template-columns: auto 1fr;
+        gap: 12px;
+      }
+      .stage-badge {
+        min-width: 0;
+        flex: 1 1 0;
+        padding-left: 6px;
+        padding-right: 6px;
+        font-size: 0.88rem;
+      }
+      .subtitle-current {
+        font-size: 0.98rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <p class="top-link"><a href="./prompt.html">打开人工提示词配置页</a></p>
+    <h1>AI 浪漫语音生成器</h1>
+    <p class="hint">输入关键词后，自动生成五阶段情绪台词并拼接为一条完整语音。</p>
+
+    <textarea id="keywords" placeholder="输入关键词，例如：晚安耳语、温柔贴近、心跳加速"></textarea>
+    <div class="row">
+      <label for="targetDuration">目标时长</label>
+      <select id="targetDuration">
+        <option value="0" selected>自动（原始时长）</option>
+        <option value="180">3 分钟</option>
+        <option value="300">5 分钟</option>
+      </select>
+    </div>
+
+    <button id="generateBtn">生成并播放浪漫语音</button>
+    <div id="status" class="status">准备就绪。</div>
+
+    <audio id="player"></audio>
+    <section class="audio-player">
+      <div class="player-main">
+        <button id="playBtn" class="play-button" type="button">
+          <span class="play-icon">▶</span>
+        </button>
+        <div class="progress-section">
+          <span id="timeText" class="time-text">0:00 / 0:00</span>
+          <input id="seekBar" class="progress-bar" type="range" min="0" max="1000" step="1" value="0" />
+        </div>
+      </div>
+      <div class="stages-track">
+        <div class="stage-badge" data-stage="0">1 前期</div>
+        <div class="stage-badge" data-stage="1">2 进行中</div>
+        <div class="stage-badge" data-stage="2">3 前奏</div>
+        <div class="stage-badge" data-stage="3">4 巅峰</div>
+        <div class="stage-badge" data-stage="4">5 余韵</div>
+      </div>
+    </section>
+    <section class="subtitle-box">
+      <p class="subtitle-title">字幕</p>
+      <p id="subtitleCurrent" class="subtitle-current">等待生成...</p>
+      <p id="subtitleFull" class="subtitle-full"></p>
+    </section>
+    <p class="small">说明：推荐在本地静态服务中运行（如 <code>python -m http.server 8000</code>）。</p>
+  </main>
+
+  <script>
+    const XAI_API_KEY = "YOUR_XAI_API_KEY";
+    const XAI_TTS_API_KEY = "YOUR_XAI_TTS_API_KEY";
+
+    const LLM_API_URL = "https://api.x.ai/v1/chat/completions";
+    const LLM_MODEL = "grok-4-1-fast-non-reasoning";
+    const XAI_TTS_VOICE_ID = "eve"; // 可选: eve / ara / rex / sal / leo
+
+    const el = {
+      keywords: document.getElementById("keywords"),
+      targetDuration: document.getElementById("targetDuration"),
+      btn: document.getElementById("generateBtn"),
+      status: document.getElementById("status"),
+      player: document.getElementById("player"),
+      playBtn: document.getElementById("playBtn"),
+      timeText: document.getElementById("timeText"),
+      seekBar: document.getElementById("seekBar"),
+      subtitleCurrent: document.getElementById("subtitleCurrent"),
+      subtitleFull: document.getElementById("subtitleFull"),
+      stagesTrack: document.querySelector(".stages-track")
+    };
+
+    let subtitleSegments = [];
+    let subtitleTimer = null;
+    let currentSubtitleIndex = -1;
+    let stageCheckpoints = [];
+    let currentStageIndex = -1;
+    let lastAudioObjectUrl = "";
+
+    function setStatus(message, type = "") {
+      el.status.textContent = message;
+      el.status.className = "status" + (type ? ` ${type}` : "");
+    }
+
+    function parseApiError(data, fallback = "未知 API 错误") {
+      if (!data) return fallback;
+      if (typeof data === "string") return data;
+      if (Array.isArray(data)) return data.map((x) => parseApiError(x, "")).filter(Boolean).join(" | ") || fallback;
+      return (
+        data?.error?.message ||
+        data?.error?.detail ||
+        data?.detail?.message ||
+        data?.detail?.error ||
+        (typeof data?.detail === "string" ? data.detail : "") ||
+        (typeof data?.message === "object" ? JSON.stringify(data.message) : data?.message) ||
+        (typeof data === "object" ? JSON.stringify(data) : "") ||
+        fallback
+      );
+    }
+
+    function splitSubtitleSegments(text) {
+      return text
+        .replace(/\r/g, "")
+        .split(/(?<=[。！？.!?])\s+|\n+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+
+    function toTtsFriendlyText(text) {
+      const p = { short: ", ", long: " ... " };
+      return text
+        .replace(/\[(pause|停顿)\]/gi, p.long)
+        .replace(/\[(soft whisper|breathy|slow inhale|gentle gasp|long sigh)\]/gi, " ")
+        .replace(/[,，、]/g, p.short)
+        .replace(/[;；]/g, p.long)
+        .replace(/[.。!?！？]/g, p.long)
+        .replace(/\s*\n+\s*/g, p.long)
+        .replace(/\s{2,}/g, " ")
+        .trim();
+    }
+
+    function stopSubtitleSync() {
+      if (subtitleTimer) {
+        clearInterval(subtitleTimer);
+        subtitleTimer = null;
+      }
+    }
+
+    function startSubtitleSync() {
+      stopSubtitleSync();
+      if (!subtitleSegments.length || !el.player.duration || !isFinite(el.player.duration)) return;
+
+      const totalChars = subtitleSegments.reduce((sum, s) => sum + s.length, 0) || 1;
+      const checkpoints = [];
+      let acc = 0;
+      for (const seg of subtitleSegments) {
+        acc += seg.length / totalChars;
+        checkpoints.push(acc * el.player.duration);
+      }
+
+      subtitleTimer = setInterval(() => {
+        const t = el.player.currentTime || 0;
+        let idx = checkpoints.findIndex((cp) => t <= cp);
+        if (idx === -1) idx = subtitleSegments.length - 1;
+        setActiveSubtitle(idx);
+      }, 120);
+    }
+
+    function renderSubtitleLines(lines) {
+      el.subtitleFull.innerHTML = "";
+      lines.forEach((line, idx) => {
+        const div = document.createElement("div");
+        div.className = "subtitle-line";
+        div.dataset.idx = String(idx);
+        div.textContent = line;
+        el.subtitleFull.appendChild(div);
+      });
+      currentSubtitleIndex = -1;
+    }
+
+    function setActiveSubtitle(idx) {
+      if (idx === currentSubtitleIndex) return;
+      currentSubtitleIndex = idx;
+      const nodes = el.subtitleFull.querySelectorAll(".subtitle-line");
+      nodes.forEach((n, i) => n.classList.toggle("active", i === idx));
+      const active = el.subtitleFull.querySelector(`.subtitle-line[data-idx="${idx}"]`);
+      if (active) {
+        active.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        el.subtitleCurrent.textContent = active.textContent || "";
+      } else {
+        el.subtitleCurrent.textContent = subtitleSegments[idx] || "";
+      }
+    }
+
+    function renderTimelineMarkers(checkpoints) {
+      // 新设计中不再使用可视化标记，此函数保留兼容性但无实际操作
+    }
+
+    function buildStageCheckpoints(scriptParts) {
+      const sizes = scriptParts.map((s) => Math.max(1, (s || "").length));
+      const total = sizes.reduce((a, b) => a + b, 0) || 1;
+      let acc = 0;
+      stageCheckpoints = sizes.map((n) => {
+        acc += n / total;
+        return acc;
+      });
+      renderTimelineMarkers(stageCheckpoints);
+    }
+
+    function jumpToStage(stageIndex) {
+      if (!el.player.duration || !isFinite(el.player.duration) || !stageCheckpoints.length) return;
+      const safeIndex = Math.max(0, Math.min(stageCheckpoints.length - 1, stageIndex));
+      const startRatio = safeIndex === 0 ? 0 : stageCheckpoints[safeIndex - 1];
+      el.player.currentTime = startRatio * el.player.duration;
+      updateTimelineProgress();
+    }
+
+    function updateStageIndicator(ratio) {
+      if (!stageCheckpoints.length) return;
+      
+      let currentStage = stageCheckpoints.findIndex((x) => ratio <= x);
+      if (currentStage === -1) currentStage = stageCheckpoints.length - 1;
+      
+      const badges = el.stagesTrack.querySelectorAll(".stage-badge");
+      badges.forEach((badge, idx) => {
+        badge.classList.remove("active", "completed");
+        if (idx < currentStage) {
+          badge.classList.add("completed");
+        } else if (idx === currentStage) {
+          badge.classList.add("active");
+        }
+      });
+      
+      currentStageIndex = currentStage;
+    }
+
+    function updateTimelineProgress() {
+      if (!el.player.duration || !isFinite(el.player.duration)) return;
+      const ratio = Math.max(0, Math.min(1, (el.player.currentTime || 0) / el.player.duration));
+      el.seekBar.value = String(Math.round(ratio * 1000));
+      
+      // 更新进度条的样式变量
+      el.seekBar.style.setProperty("--progress", `${ratio * 100}%`);
+      
+      const cur = formatTime(el.player.currentTime || 0);
+      const dur = formatTime(el.player.duration || 0);
+      el.timeText.textContent = `${cur} / ${dur}`;
+
+      // 更新阶段指示器
+      updateStageIndicator(ratio);
+
+      if (subtitleSegments.length) {
+        const totalChars = subtitleSegments.reduce((sum, s) => sum + s.length, 0) || 1;
+        let acc = 0;
+        let idx = subtitleSegments.length - 1;
+        for (let i = 0; i < subtitleSegments.length; i++) {
+          acc += subtitleSegments[i].length / totalChars;
+          if (ratio <= acc) { idx = i; break; }
+        }
+        setActiveSubtitle(idx);
+      }
+    }
+
+    function formatTime(seconds) {
+      const s = Math.max(0, Math.floor(seconds));
+      const m = Math.floor(s / 60);
+      const r = s % 60;
+      return `${m}:${String(r).padStart(2, "0")}`;
+    }
+
+    function getManualPrompt() {
+      return localStorage.getItem("ROMANCE_LLM_SYSTEM_PROMPT") || "";
+    }
+
+    async function generateScriptSegments(input, targetSeconds = 0) {
+      const manualPrompt = getManualPrompt();
+      if (!manualPrompt) {
+        throw new Error("未配置人工提示词，请先到配置页手动填写并保存。");
+      }
+
+      let userMessage = input;
+      if (targetSeconds > 0) {
+        const minutes = Math.round(targetSeconds / 60);
+        const charsPerStage = Math.max(120, Math.round(targetSeconds * 3.5 / 5));
+        const totalChars = charsPerStage * 5;
+        userMessage += `\n\n【重要时长要求】目标总时长为 ${minutes} 分钟（${targetSeconds} 秒）。请确保每个阶段的台词内容足够丰富、详细、有层次，每个阶段至少 ${charsPerStage} 字，5个阶段总字数不少于 ${totalChars} 字。内容要自然流畅、情绪递进，不要为了凑字数而重复相似的句子。每个阶段应包含多个完整的句子和情感描写。`;
+      }
+
+      const body = {
+        model: LLM_MODEL,
+        messages: [
+          {
+            role: "system",
+            content: manualPrompt
+          },
+          {
+            role: "user",
+            content: userMessage
+          }
+        ]
+      };
+
+      const res = await fetch(LLM_API_URL, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${XAI_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body)
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error("LLM 接口错误: " + parseApiError(data, `HTTP ${res.status}`));
+
+      const raw = data?.choices?.[0]?.message?.content?.trim();
+      if (!raw) throw new Error("LLM 返回了空文本。");
+
+      let parsed = null;
+      try { parsed = JSON.parse(raw); } catch {
+        return splitSubtitleSegments(raw).slice(0, 5);
+      }
+
+      const stage1 = String(parsed?.stage1 || "").trim();
+      const stage2 = String(parsed?.stage2 || "").trim();
+      const stage3 = String(parsed?.stage3 || "").trim();
+      const stage4 = String(parsed?.stage4 || "").trim();
+      const stage5 = String(parsed?.stage5 || "").trim();
+
+      const intro = String(parsed?.intro || "").trim();
+      const peak = String(parsed?.peak || "").trim();
+      const outro = String(parsed?.outro || "").trim();
+
+      let segments = [stage1, stage2, stage3, stage4, stage5].filter(Boolean);
+      if (!segments.length) segments = [intro, peak, outro].filter(Boolean);
+      if (!segments.length) segments = splitSubtitleSegments(raw).slice(0, 5);
+      if (!segments.length) throw new Error("LLM 分段结果为空。");
+      return segments;
+    }
+
+    async function synthesizeVoice(text) {
+      const body = {
+        text,
+        voice_id: XAI_TTS_VOICE_ID,
+        language: "en"
+      };
+
+      const res = await fetch("https://api.x.ai/v1/tts", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${XAI_TTS_API_KEY}`,
+          "Accept": "audio/mpeg",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body)
+      });
+
+      if (!res.ok) {
+        const textErr = await res.text().catch(() => "");
+        let data = null;
+        try { data = textErr ? JSON.parse(textErr) : null; } catch { data = textErr; }
+        throw new Error("xAI TTS 接口错误: " + parseApiError(data, `HTTP ${res.status}`));
+      }
+
+      return res.arrayBuffer();
+    }
+
+    async function mergeAudioBuffers(buffers, targetSeconds = 0) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) throw new Error("当前浏览器不支持 Web Audio API。");
+      const ctx = new AudioCtx();
+      const decoded = [];
+
+      for (const b of buffers) {
+        decoded.push(await ctx.decodeAudioData(b.slice(0)));
+      }
+
+      const sampleRate = decoded[0].sampleRate;
+      const channels = Math.max(...decoded.map((d) => d.numberOfChannels));
+      const baseLength = decoded.reduce((sum, d) => sum + d.length, 0);
+      const baseDuration = baseLength / sampleRate;
+
+      // 确定最终长度：不再无限循环，最多重复 2 轮
+      let finalLength = baseLength;
+      let maxRounds = 1;
+      if (targetSeconds > 0 && targetSeconds > baseDuration) {
+        maxRounds = Math.min(2, Math.ceil(targetSeconds / baseDuration));
+        finalLength = Math.min(
+          Math.ceil(targetSeconds * sampleRate),
+          baseLength * maxRounds
+        );
+      }
+
+      const offline = new OfflineAudioContext(channels, finalLength, sampleRate);
+
+      let offset = 0;
+      for (let round = 0; round < maxRounds && offset < finalLength; round++) {
+        for (const d of decoded) {
+          if (offset >= finalLength) break;
+          const remaining = finalLength - offset;
+          const chunkLength = Math.min(d.length, remaining);
+          const src = offline.createBufferSource();
+          const normalized = offline.createBuffer(channels, chunkLength, sampleRate);
+          for (let ch = 0; ch < channels; ch++) {
+            const data = normalized.getChannelData(ch);
+            if (ch < d.numberOfChannels) {
+              const source = d.getChannelData(ch);
+              data.set(source.subarray(0, chunkLength));
+            }
+          }
+          src.buffer = normalized;
+          src.connect(offline.destination);
+          src.start(offset / sampleRate);
+          offset += normalized.length;
+        }
+      }
+
+      const rendered = await offline.startRendering();
+      await ctx.close();
+      return audioBufferToWavBlob(rendered);
+    }
+
+    function audioBufferToWavBlob(buffer) {
+      const numChannels = buffer.numberOfChannels;
+      const sampleRate = buffer.sampleRate;
+      const format = 1;
+      const bitDepth = 16;
+      const bytesPerSample = bitDepth / 8;
+      const blockAlign = numChannels * bytesPerSample;
+      const dataLength = buffer.length * blockAlign;
+      const wav = new ArrayBuffer(44 + dataLength);
+      const view = new DataView(wav);
+
+      const writeString = (offset, str) => {
+        for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+      };
+
+      writeString(0, "RIFF");
+      view.setUint32(4, 36 + dataLength, true);
+      writeString(8, "WAVE");
+      writeString(12, "fmt ");
+      view.setUint32(16, 16, true);
+      view.setUint16(20, format, true);
+      view.setUint16(22, numChannels, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * blockAlign, true);
+      view.setUint16(32, blockAlign, true);
+      view.setUint16(34, bitDepth, true);
+      writeString(36, "data");
+      view.setUint32(40, dataLength, true);
+
+      let offset = 44;
+      for (let i = 0; i < buffer.length; i++) {
+        for (let ch = 0; ch < numChannels; ch++) {
+          const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i] || 0));
+          view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+          offset += 2;
+        }
+      }
+      return new Blob([wav], { type: "audio/wav" });
+    }
+
+    async function run() {
+      const input = el.keywords.value.trim();
+      if (!input) return alert("请先输入关键词。");
+
+      if (XAI_API_KEY.includes("YOUR_XAI_API_KEY")) {
+        setStatus("请先填写 xAI API Key。", "err");
+        return;
+      }
+      if (XAI_TTS_API_KEY.includes("YOUR_XAI_TTS_API_KEY")) {
+        setStatus("请先填写 xAI TTS API Key。", "err");
+        return;
+      }
+
+      el.btn.disabled = true;
+      stopSubtitleSync();
+      subtitleSegments = [];
+      currentSubtitleIndex = -1;
+      el.subtitleCurrent.textContent = "处理中...";
+      renderSubtitleLines([]);
+      el.seekBar.value = "0";
+      el.seekBar.style.setProperty("--progress", "0%");
+      el.timeText.textContent = "0:00 / 0:00";
+      stageCheckpoints = [];
+      currentStageIndex = -1;
+      const badges = el.stagesTrack.querySelectorAll(".stage-badge");
+      badges.forEach(b => b.classList.remove("active", "completed"));
+      el.player.pause();
+      el.player.removeAttribute("src");
+      el.player.load();
+
+      if (lastAudioObjectUrl) {
+        URL.revokeObjectURL(lastAudioObjectUrl);
+        lastAudioObjectUrl = "";
+      }
+
+      try {
+        const targetSeconds = Number(el.targetDuration.value || 0);
+        setStatus(targetSeconds ? `正在生成 ${Math.round(targetSeconds / 60)} 分钟台词...` : "正在生成五段台词...");
+        const scriptParts = await generateScriptSegments(input, targetSeconds);
+        buildStageCheckpoints(scriptParts);
+        subtitleSegments = scriptParts.flatMap(splitSubtitleSegments);
+        renderSubtitleLines(subtitleSegments);
+        el.subtitleCurrent.textContent = subtitleSegments[0] || "";
+
+        setStatus(`正在合成语音（1/${scriptParts.length}）...`);
+        const audioBuffers = [];
+        for (let i = 0; i < scriptParts.length; i++) {
+          const pretty = toTtsFriendlyText(scriptParts[i]);
+          setStatus(`正在合成语音（${i + 1}/${scriptParts.length}）...`);
+          audioBuffers.push(await synthesizeVoice(pretty));
+        }
+
+        setStatus("正在拼接音频...");
+        const mergedBlob = await mergeAudioBuffers(audioBuffers, targetSeconds);
+        const audioUrl = URL.createObjectURL(mergedBlob);
+        lastAudioObjectUrl = audioUrl;
+
+        setStatus("正在播放音频...");
+        el.player.src = audioUrl;
+        el.player.onloadedmetadata = () => {
+          startSubtitleSync();
+          updateTimelineProgress();
+        };
+        el.player.onplay = () => {
+          startSubtitleSync();
+          el.playBtn.querySelector(".play-icon").textContent = "⏸";
+        };
+        el.player.onpause = () => {
+          stopSubtitleSync();
+          el.playBtn.querySelector(".play-icon").textContent = "▶";
+        };
+        el.player.ontimeupdate = updateTimelineProgress;
+        el.player.onseeking = updateTimelineProgress;
+        el.player.onended = () => {
+          stopSubtitleSync();
+          updateTimelineProgress();
+          el.playBtn.querySelector(".play-icon").textContent = "▶";
+          if (subtitleSegments.length) {
+            setActiveSubtitle(subtitleSegments.length - 1);
+          }
+        };
+
+        try {
+          await el.player.play();
+          setStatus("已开始播放。", "ok");
+        } catch {
+          setStatus("音频已就绪，请手动点击播放。", "ok");
+        }
+      } catch (err) {
+        const msg = err?.message || "网络错误";
+        setStatus("错误: " + msg, "err");
+        console.error(err);
+      } finally {
+        el.btn.disabled = false;
+      }
+    }
+
+    el.playBtn.addEventListener("click", async () => {
+      if (!el.player.src) return;
+      if (el.player.paused) {
+        try { await el.player.play(); } catch {}
+      } else {
+        el.player.pause();
+      }
+    });
+    el.seekBar.addEventListener("input", () => {
+      if (!el.player.duration || !isFinite(el.player.duration)) return;
+      const ratio = Number(el.seekBar.value) / 1000;
+      el.player.currentTime = ratio * el.player.duration;
+      updateTimelineProgress();
+    });
+    el.stagesTrack.querySelectorAll(".stage-badge").forEach((badge) => {
+      badge.addEventListener("click", () => {
+        const idx = Number(badge.dataset.stage || 0);
+        jumpToStage(idx);
+      });
+    });
+    el.btn.addEventListener("click", run);
+  </script>
+</body>
+</html>

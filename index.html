@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI 浪漫语音生成器</title>
+  <style>
+    :root {
+      --bg1: #fff8f0;
+      --bg2: #ffe6ea;
+      --card: #ffffffcc;
+      --text: #2c1f2e;
+      --muted: #6b5a6e;
+      --accent: #e94e77;
+      --accent-hover: #d63f68;
+      --ok: #0f9d58;
+      --err: #c62828;
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", system-ui, -apple-system, sans-serif;
+      color: var(--text);
+      background: linear-gradient(135deg, var(--bg1), var(--bg2));
+      min-height: 100vh;
+      display: grid;
+      place-items: start center;
+      padding: 18px 12px 32px;
+    }
+    .app {
+      width: min(100%, 390px);
+      background: var(--card);
+      backdrop-filter: blur(8px);
+      border: 1px solid #ffffff80;
+      border-radius: 24px;
+      padding: 18px;
+      box-shadow: 0 18px 48px rgba(124, 58, 90, 0.14);
+      margin: 0 auto;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(2rem, 7vw, 2.6rem);
+      line-height: 1.05;
+    }
+    .hint { margin: 0 0 12px; color: var(--muted); font-size: 0.94rem; line-height: 1.45; }
+    .top-link { margin: 0 0 8px; }
+    .top-link a { color: #b43f63; font-size: 0.92rem; text-decoration: none; }
+    .top-link a:hover { text-decoration: underline; }
+    textarea {
+      width: 100%;
+      min-height: 132px;
+      resize: vertical;
+      border: 2px solid #f4c8d3;
+      border-radius: 16px;
+      padding: 14px 15px;
+      font-size: 0.98rem;
+      line-height: 1.5;
+      outline: none;
+      background: #fff;
+    }
+    textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #e94e7728; }
+    .row {
+      margin-top: 12px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+    .row label { font-size: 0.92rem; color: var(--muted); }
+    .row select {
+      width: 100%;
+      border: 2px solid #f4c8d3;
+      border-radius: 14px;
+      padding: 11px 12px;
+      font-size: 0.95rem;
+      background: #fff;
+      outline: none;
+    }
+    .row select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #e94e7728; }
+    .slider-wrap {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+    }
+    .slider-wrap input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+    .slider-value {
+      min-width: 42px;
+      text-align: right;
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-variant-numeric: tabular-nums;
+    }
+    button {
+      width: 100%;
+      margin-top: 14px;
+      padding: 15px 16px;
+      border: 0;
+      border-radius: 16px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 1.06rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.05s ease;
+    }
+    button:hover { background: var(--accent-hover); }
+    button:active { transform: translateY(1px); }
+    button[disabled] { opacity: 0.6; cursor: not-allowed; }
+    .status {
+      margin-top: 12px;
+      min-height: 24px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: #fff;
+      border: 1px solid #f1d8de;
+      color: var(--muted);
+      font-size: 0.95rem;
+      word-break: break-word;
+    }
+    .status.ok { color: var(--ok); border-color: #b8e5cc; background: #f3fff8; }
+    .status.err { color: var(--err); border-color: #f2c4c4; background: #fff5f5; }
+    audio { display: none; }
+
+    /* Audio Player Card - 音频播放卡片 */
+    .audio-player {
+      --sp-xs: 8px;
+      --sp-sm: 12px;
+      --sp-md: 16px;
+      --sp-lg: 20px;
+      --radius-sm: 10px;
+      --radius-md: 12px;
+      --color-brand: #e94e77;
+      --color-brand-hover: #d63f68;
+      --color-border: #f1d8de;
+      --color-text-primary: #2c1f2e;
+      --color-text-secondary: #6b5a6e;
+      --color-text-muted: #a89ba5;
+      
+
+      margin-top: var(--sp-lg);
+      background: #fff;
+      border: 1px solid var(--color-border);
+      border-radius: 18px;
+      padding: var(--sp-lg);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-lg);
+    }
+
+    /* 主播放区域：按钮、时间、进度条 */
+    .player-main {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: var(--sp-md);
+      align-items: flex-start;
+    }
+
+    /* 播放按钮 */
+    .play-button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--sp-xs);
+      width: 48px;
+      height: 48px;
+      flex-shrink: 0;
+      border: none;
+      border-radius: var(--radius-sm);
+      background: var(--color-brand);
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      padding: 0;
+    }
+
+    .play-button:hover {
+      background: var(--color-brand-hover);
+      transform: scale(1.05);
+    }
+
+    .play-button:active {
+      transform: scale(0.98);
+    }
+
+    .play-button[disabled] {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: scale(1);
+    }
+
+    .play-button .play-icon {
+      font-size: 1.1rem;
+      display: inline-block;
+    }
+
+    /* 进度条区域 */
+    .progress-section {
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-sm);
+      width: 100%;
+    }
+
+    /* 时间显示 */
+    .time-text {
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--color-text-primary);
+      letter-spacing: 0.2px;
+      text-align: left;
+      min-height: 1.5em;
+      line-height: 1.5;
+    }
+
+    /* 进度条输入 */
+    .progress-bar {
+      width: 100%;
+      height: 5px;
+      margin: 0;
+      padding: 0;
+      appearance: none;
+      -webkit-appearance: none;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      outline: none;
+      background-color: #e8d4db;
+      background-image: linear-gradient(to right, var(--color-brand) 0%, var(--color-brand) var(--progress, 0%), #e8d4db var(--progress, 0%), #e8d4db 100%);
+      background-repeat: no-repeat;
+      background-size: 100% 100%;
+    }
+
+    .progress-bar::-webkit-slider-thumb {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--color-brand);
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(233, 78, 119, 0.3);
+      border: none;
+      transition: all 0.2s ease;
+    }
+
+    .progress-bar::-webkit-slider-thumb:hover {
+      width: 16px;
+      height: 16px;
+      box-shadow: 0 2px 6px rgba(233, 78, 119, 0.4);
+    }
+
+    .progress-bar::-webkit-slider-thumb:active {
+      transform: scale(0.95);
+    }
+
+    .progress-bar::-moz-range-track {
+      background: transparent;
+      border: none;
+      box-shadow: none;
+    }
+
+    .progress-bar::-moz-range-progress {
+      background: var(--color-brand);
+      border-radius: 3px;
+      height: 5px;
+    }
+
+    .progress-bar::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--color-brand);
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(233, 78, 119, 0.3);
+      border: none;
+      transition: all 0.2s ease;
+    }
+
+    .progress-bar::-moz-range-thumb:hover {
+      width: 16px;
+      height: 16px;
+      box-shadow: 0 2px 6px rgba(233, 78, 119, 0.4);
+    }
+
+    .progress-bar::-moz-range-thumb:active {
+      transform: scale(0.95);
+    }
+
+
+    .subtitle-box {
+      margin-top: 12px;
+      border: 1px solid #f1d8de;
+      background: #fff;
+      border-radius: 18px;
+      padding: 12px;
+    }
+    .subtitle-title { margin: 0 0 8px; font-size: 0.9rem; color: var(--muted); }
+    .subtitle-current {
+      margin: 0;
+      min-height: 2.2em;
+      font-size: 1.05rem;
+      line-height: 1.6;
+      color: var(--text);
+      font-weight: 600;
+    }
+    .subtitle-full {
+      margin: 8px 0 0;
+      max-height: 220px;
+      overflow: auto;
+      font-size: 0.92rem;
+      line-height: 1.6;
+      color: #745f78;
+      border-top: 1px dashed #efd7df;
+      padding-top: 8px;
+    }
+    .subtitle-line {
+      padding: 6px 8px;
+      border-radius: 8px;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .subtitle-line.active {
+      background: #fce5ec;
+      color: #2c1f2e;
+      font-weight: 700;
+    }
+    .panel {
+      margin-top: 16px;
+      padding: 14px;
+      border: 1px solid #efd7df;
+      border-radius: 18px;
+      background: linear-gradient(180deg, #fff8fb 0%, #fff 100%);
+    }
+    .panel h2 {
+      margin: 0 0 6px;
+      font-size: 1.02rem;
+    }
+    .panel p {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+    .panel textarea {
+      min-height: 110px;
+      margin-bottom: 10px;
+    }
+    .panel button {
+      margin-top: 0;
+    }
+    .small { margin-top: 10px; font-size: 0.82rem; color: var(--muted); line-height: 1.5; }
+    @media (max-width: 480px) {
+      body {
+        padding: 10px 8px 24px;
+      }
+      .app {
+        width: 100%;
+        border-radius: 18px;
+        padding: 14px;
+      }
+      h1 {
+        font-size: 1.9rem;
+      }
+      .audio-player {
+        --sp-md: 12px;
+        --sp-lg: 14px;
+        padding: 14px;
+      }
+      .player-main {
+        grid-template-columns: auto 1fr;
+        gap: 12px;
+      }
+      .subtitle-current {
+        font-size: 0.98rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <p class="top-link"><a href="./prompt.html">打开人工提示词配置页</a></p>
+    <h1>AI 浪漫语音生成器</h1>
+    <p class="hint">输入关键词后，自动生成连续情感台词并合成为一条完整语音。</p>
+
+    <textarea id="keywords" placeholder="输入关键词，例如：晚安耳语、温柔贴近、心跳加速"></textarea>
+    <div class="row">
+      <label for="targetDuration">目标时长</label>
+      <select id="targetDuration">
+        <option value="0" selected>自动（原始时长）</option>
+        <option value="180">3 分钟</option>
+        <option value="300">5 分钟</option>
+      </select>
+    </div>
+    <div class="row">
+      <label for="ttsProvider">TTS 提供商</label>
+      <select id="ttsProvider">
+        <option value="xai" selected>xAI TTS</option>
+        <option value="fish">Fish Audio</option>
+        <option value="sexyvoice">SexyVoice.ai</option>
+      </select>
+    </div>
+    <div class="row" id="fishModelRow" style="display:none">
+      <label for="fishModel">Fish 模型</label>
+      <select id="fishModel" style="flex:1;padding:8px 10px;border:2px solid #f4c8d3;border-radius:10px;font-size:0.92rem;outline:none;background:#fff;">
+        <option value="s1" selected>s1</option>
+        <option value="s2-pro">s2-pro</option>
+      </select>
+    </div>
+    <div class="row" id="fishVoiceRow" style="display:none">
+      <label for="fishReferenceId">Fish 音色 ID</label>
+      <input id="fishReferenceId" type="text" placeholder="填写音色的 reference_id，例如 Megan Skiendel 对应 ID" value="0b846ae657904027a12d2d867d1a143b" style="flex:1;padding:8px 10px;border:2px solid #f4c8d3;border-radius:10px;font-size:0.92rem;outline:none;" />
+    </div>
+    <div class="row" id="fishEmotionRow" style="display:none">
+      <label for="fishEmotionIntensity">Fish Emotion Intensity</label>
+      <div class="slider-wrap">
+        <input id="fishEmotionIntensity" type="range" min="0" max="100" step="1" value="70" />
+        <span id="fishEmotionIntensityValue" class="slider-value">70</span>
+      </div>
+    </div>
+    <div class="row" id="fishBreathRow" style="display:none">
+      <label for="fishBreathiness">Fish Breathiness</label>
+      <div class="slider-wrap">
+        <input id="fishBreathiness" type="range" min="0" max="100" step="1" value="65" />
+        <span id="fishBreathinessValue" class="slider-value">65</span>
+      </div>
+    </div>
+    <div class="row" id="fishTemperatureRow" style="display:none">
+      <label for="fishTemperature">Fish Temperature</label>
+      <div class="slider-wrap">
+        <input id="fishTemperature" type="range" min="0" max="100" step="1" value="100" />
+        <span id="fishTemperatureValue" class="slider-value">1.0</span>
+      </div>
+    </div>
+    <div class="row" id="fishKeyRow" style="display:none">
+      <label for="fishApiKey">Fish API Key</label>
+      <input id="fishApiKey" type="password" placeholder="填写 Fish Audio API Key" style="flex:1;padding:8px 10px;border:2px solid #f4c8d3;border-radius:10px;font-size:0.92rem;outline:none;" />
+    </div>
+    <div class="row" id="svVoiceRow" style="display:none">
+      <label for="svVoice">SexyVoice 声音</label>
+      <select id="svVoice">
+        <option value="zephyr" data-model="gpro">Zephyr (多语言)</option>
+        <option value="kore" data-model="gpro">Kore (多语言)</option>
+        <option value="sulafat" data-model="gpro">Sulafat (多语言)</option>
+        <option value="puck" data-model="gpro">Puck (多语言)</option>
+        <option value="gacrux" data-model="gpro">Gacrux (多语言)</option>
+        <option value="achernar" data-model="gpro">Achernar (多语言)</option>
+        <option value="aoede" data-model="gpro">Aoede (多语言)</option>
+        <option value="despina" data-model="gpro">Despina (多语言)</option>
+        <option value="erinome" data-model="gpro">Erinome (多语言)</option>
+        <option value="emma" data-model="orpheus">Emma (EN-US)</option>
+        <option value="tara" data-model="orpheus">Tara (EN-US)</option>
+        <option value="josh" data-model="orpheus">Josh (EN-US)</option>
+        <option value="dan" data-model="orpheus">Dan (EN-UK)</option>
+        <option value="pietro" data-model="orpheus">Pietro (IT)</option>
+      </select>
+    </div>
+    <div class="row" id="svStyleRow" style="display:none">
+      <label for="svStyle">SexyVoice 风格</label>
+      <input id="svStyle" type="text" placeholder="如：warm, breathy, seductive" value="warm" style="flex:1;padding:8px 10px;border:2px solid #f4c8d3;border-radius:10px;font-size:0.92rem;outline:none;" />
+    </div>
+    <div class="row" id="svKeyRow" style="display:none">
+      <label for="svApiKey">SexyVoice API Key</label>
+      <input id="svApiKey" type="password" placeholder="sk_live_..." style="flex:1;padding:8px 10px;border:2px solid #f4c8d3;border-radius:10px;font-size:0.92rem;outline:none;" />
+    </div>
+
+    <button id="generateBtn">生成并播放浪漫语音</button>
+
+    <section class="panel">
+      <h2>直接 TTS 对话窗口</h2>
+      <p>这里不走 LLM，直接把你输入的对话文本合成为语音。</p>
+      <textarea id="directTtsText" placeholder="直接输入要朗读的内容，例如：宝贝，今天辛苦了，靠过来让我抱抱你。"></textarea>
+      <button id="directTtsBtn" type="button">直接合成这段对话</button>
+    </section>
+
+    <div id="status" class="status">准备就绪。</div>
+
+    <audio id="player"></audio>
+    <section class="audio-player">
+      <div class="player-main">
+        <button id="playBtn" class="play-button" type="button">
+          <span class="play-icon">▶</span>
+        </button>
+        <div class="progress-section">
+          <span id="timeText" class="time-text">0:00 / 0:00</span>
+          <input id="seekBar" class="progress-bar" type="range" min="0" max="1000" step="1" value="0" />
+        </div>
+      </div>
+
+    </section>
+    <section class="subtitle-box">
+      <p class="subtitle-title">字幕</p>
+      <p id="subtitleCurrent" class="subtitle-current">等待生成...</p>
+      <p id="subtitleFull" class="subtitle-full"></p>
+    </section>
+    <p class="small">说明：请用 <code>python server.py</code> 启动本地服务器（包含 API 代理）。</p>
+  </main>
+
+  <script>
+    const XAI_API_KEY = "YOUR_XAI_API_KEY";
+    const XAI_TTS_API_KEY = "YOUR_XAI_TTS_API_KEY";
+
+    const LLM_API_URL = "https://api.x.ai/v1/chat/completions";
+    const LLM_MODEL = "grok-4-1-fast-non-reasoning";
+    const XAI_TTS_VOICE_ID = "eve"; // 可选: eve / ara / rex / sal / leo
+
+    // Fish Audio 配置（走本地代理绕 CORS）
+    const FISH_TTS_API_URL = "/proxy/fish/tts";
+    const FISH_TTS_LOCAL_PROXY_URL = "http://localhost:8080/proxy/fish/tts";
+
+    // SexyVoice.ai 配置（走本地代理绕 CORS）
+    const SV_API_URL = "/proxy/sexyvoice/speech";
+    const SV_MODEL = "gpro";
+
+    // TTS 提供商切换
+    const ttsProviderEl = document.getElementById("ttsProvider");
+    const fishModelRow = document.getElementById("fishModelRow");
+    const fishVoiceRow = document.getElementById("fishVoiceRow");
+    const fishEmotionRow = document.getElementById("fishEmotionRow");
+    const fishBreathRow = document.getElementById("fishBreathRow");
+    const fishTemperatureRow = document.getElementById("fishTemperatureRow");
+    const fishKeyRow = document.getElementById("fishKeyRow");
+    const svVoiceRow = document.getElementById("svVoiceRow");
+    const svStyleRow = document.getElementById("svStyleRow");
+    const svKeyRow = document.getElementById("svKeyRow");
+    const fishApiKeyEl = document.getElementById("fishApiKey");
+    const fishModelEl = document.getElementById("fishModel");
+    const fishReferenceIdEl = document.getElementById("fishReferenceId");
+    const fishEmotionIntensityEl = document.getElementById("fishEmotionIntensity");
+    const fishEmotionIntensityValueEl = document.getElementById("fishEmotionIntensityValue");
+    const fishBreathinessEl = document.getElementById("fishBreathiness");
+    const fishBreathinessValueEl = document.getElementById("fishBreathinessValue");
+    const fishTemperatureEl = document.getElementById("fishTemperature");
+    const fishTemperatureValueEl = document.getElementById("fishTemperatureValue");
+    const svApiKeyEl = document.getElementById("svApiKey");
+    const svVoiceEl = document.getElementById("svVoice");
+    const svStyleEl = document.getElementById("svStyle");
+
+    // 加载上次保存的 TTS 配置
+    fishApiKeyEl.value = localStorage.getItem("FISH_API_KEY") || "";
+    fishModelEl.value = localStorage.getItem("FISH_MODEL") || "s1";
+    if (!["s1", "s2-pro"].includes(fishModelEl.value.trim())) {
+      fishModelEl.value = "s1";
+      localStorage.setItem("FISH_MODEL", "s1");
+    }
+    fishReferenceIdEl.value = localStorage.getItem("FISH_REFERENCE_ID") || "0b846ae657904027a12d2d867d1a143b";
+    fishEmotionIntensityEl.value = localStorage.getItem("FISH_EMOTION_INTENSITY") || "70";
+    fishBreathinessEl.value = localStorage.getItem("FISH_BREATHINESS") || "65";
+    fishTemperatureEl.value = localStorage.getItem("FISH_TEMPERATURE") || "100";
+    fishEmotionIntensityValueEl.textContent = fishEmotionIntensityEl.value;
+    fishBreathinessValueEl.textContent = fishBreathinessEl.value;
+    fishTemperatureValueEl.textContent = (Number(fishTemperatureEl.value) / 100).toFixed(1);
+    svApiKeyEl.value = localStorage.getItem("SV_API_KEY") || "";
+    svVoiceEl.value = localStorage.getItem("SV_VOICE") || "Zephyr";
+    svStyleEl.value = localStorage.getItem("SV_STYLE") || "warm";
+    ttsProviderEl.value = localStorage.getItem("TTS_PROVIDER") || "xai";
+
+    function toggleTtsOptions() {
+      const isFish = ttsProviderEl.value === "fish";
+      const isSV = ttsProviderEl.value === "sexyvoice";
+      fishModelRow.style.display = isFish ? "flex" : "none";
+      fishVoiceRow.style.display = isFish ? "flex" : "none";
+      const isFishS2Pro = isFish && fishModelEl.value === "s2-pro";
+      fishEmotionRow.style.display = isFishS2Pro ? "flex" : "none";
+      fishBreathRow.style.display = isFishS2Pro ? "flex" : "none";
+      fishTemperatureRow.style.display = isFish ? "flex" : "none";
+      fishKeyRow.style.display = isFish ? "flex" : "none";
+      svVoiceRow.style.display = isSV ? "flex" : "none";
+      svStyleRow.style.display = isSV ? "flex" : "none";
+      svKeyRow.style.display = isSV ? "flex" : "none";
+      localStorage.setItem("TTS_PROVIDER", ttsProviderEl.value);
+    }
+    ttsProviderEl.addEventListener("change", toggleTtsOptions);
+    toggleTtsOptions();
+
+    fishApiKeyEl.addEventListener("change", () => localStorage.setItem("FISH_API_KEY", fishApiKeyEl.value.trim()));
+    fishModelEl.addEventListener("change", () => {
+      localStorage.setItem("FISH_MODEL", fishModelEl.value.trim() || "s1");
+      toggleTtsOptions();
+    });
+    fishReferenceIdEl.addEventListener("change", () => localStorage.setItem("FISH_REFERENCE_ID", fishReferenceIdEl.value.trim()));
+    fishEmotionIntensityEl.addEventListener("input", () => {
+      fishEmotionIntensityValueEl.textContent = fishEmotionIntensityEl.value;
+      localStorage.setItem("FISH_EMOTION_INTENSITY", fishEmotionIntensityEl.value);
+    });
+    fishBreathinessEl.addEventListener("input", () => {
+      fishBreathinessValueEl.textContent = fishBreathinessEl.value;
+      localStorage.setItem("FISH_BREATHINESS", fishBreathinessEl.value);
+    });
+    fishTemperatureEl.addEventListener("input", () => {
+      fishTemperatureValueEl.textContent = (Number(fishTemperatureEl.value) / 100).toFixed(1);
+      localStorage.setItem("FISH_TEMPERATURE", fishTemperatureEl.value);
+    });
+    svApiKeyEl.addEventListener("change", () => localStorage.setItem("SV_API_KEY", svApiKeyEl.value.trim()));
+    svVoiceEl.addEventListener("change", () => localStorage.setItem("SV_VOICE", svVoiceEl.value));
+    svStyleEl.addEventListener("change", () => localStorage.setItem("SV_STYLE", svStyleEl.value.trim()));
+
+    const el = {
+      keywords: document.getElementById("keywords"),
+      directTtsText: document.getElementById("directTtsText"),
+      targetDuration: document.getElementById("targetDuration"),
+      btn: document.getElementById("generateBtn"),
+      directTtsBtn: document.getElementById("directTtsBtn"),
+      status: document.getElementById("status"),
+      player: document.getElementById("player"),
+      playBtn: document.getElementById("playBtn"),
+      timeText: document.getElementById("timeText"),
+      seekBar: document.getElementById("seekBar"),
+      subtitleCurrent: document.getElementById("subtitleCurrent"),
+      subtitleFull: document.getElementById("subtitleFull"),
+    };
+
+    let subtitleSegments = [];
+    let subtitleTimeline = [];
+    let subtitleTimer = null;
+    let currentSubtitleIndex = -1;
+    let lastAudioObjectUrl = "";
+
+    function setStatus(message, type = "") {
+      el.status.textContent = message;
+      el.status.className = "status" + (type ? ` ${type}` : "");
+    }
+
+    function parseApiError(data, fallback = "未知 API 错误") {
+      if (!data) return fallback;
+      if (typeof data === "string") return data;
+      if (Array.isArray(data)) return data.map((x) => parseApiError(x, "")).filter(Boolean).join(" | ") || fallback;
+      return (
+        data?.error?.message ||
+        data?.error?.detail ||
+        data?.detail?.message ||
+        data?.detail?.error ||
+        (typeof data?.detail === "string" ? data.detail : "") ||
+        (typeof data?.message === "object" ? JSON.stringify(data.message) : data?.message) ||
+        (typeof data === "object" ? JSON.stringify(data) : "") ||
+        fallback
+      );
+    }
+
+    function splitSubtitleSegments(text) {
+      return text
+        .replace(/\r/g, "")
+        .split(/(?<=[。！？.!?])\s+|\n+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+
+    function computeSubtitleWeight(text) {
+      const normalized = (text || "").trim();
+      if (!normalized) return 1;
+      const charWeight = normalized.replace(/\s+/g, "").length;
+      const commaPauses = (normalized.match(/[,，、]/g) || []).length * 2;
+      const longPauses = (normalized.match(/[.。!?！？;；:：]/g) || []).length * 4;
+      return Math.max(1, charWeight + commaPauses + longPauses);
+    }
+
+    function rebuildSubtitleTimeline(totalDuration) {
+      subtitleTimeline = [];
+      if (!subtitleSegments.length || !totalDuration || !isFinite(totalDuration) || totalDuration <= 0) return;
+
+      const weights = subtitleSegments.map(computeSubtitleWeight);
+      const totalWeight = weights.reduce((sum, value) => sum + value, 0) || 1;
+      let start = 0;
+
+      subtitleTimeline = subtitleSegments.map((segment, index) => {
+        const duration = index === subtitleSegments.length - 1
+          ? Math.max(0, totalDuration - start)
+          : totalDuration * (weights[index] / totalWeight);
+        const item = {
+          start,
+          end: Math.min(totalDuration, start + duration),
+          text: segment
+        };
+        start = item.end;
+        return item;
+      });
+    }
+
+    function getSubtitleIndexAtTime(time) {
+      if (!subtitleTimeline.length) return -1;
+      const t = Math.max(0, time || 0);
+      const idx = subtitleTimeline.findIndex((item) => t >= item.start && t <= item.end);
+      if (idx !== -1) return idx;
+      if (t >= subtitleTimeline[subtitleTimeline.length - 1].end) return subtitleTimeline.length - 1;
+      return 0;
+    }
+
+    function toTtsFriendlyText(text) {
+      const p = { short: ", ", long: " ... " };
+      return text
+        .replace(/\[(pause|停顿)\]/gi, p.long)
+        .replace(/\[(soft whisper|breathy|slow inhale|gentle gasp|long sigh)\]/gi, " ")
+        .replace(/[,，、]/g, p.short)
+        .replace(/[;；]/g, p.long)
+        .replace(/[.。!?！？]/g, p.long)
+        .replace(/\s*\n+\s*/g, p.long)
+        .replace(/\s{2,}/g, " ")
+        .trim();
+    }
+
+    function applyFishS2ProControls(text) {
+      const emotion = Number(fishEmotionIntensityEl.value || 70);
+      const breath = Number(fishBreathinessEl.value || 65);
+      const controlTags = [];
+
+      if (emotion >= 85) controlTags.push("[intensely emotional]", "[strong emphasis]");
+      else if (emotion >= 65) controlTags.push("[emotionally expressive]", "[emphasis]");
+      else if (emotion >= 40) controlTags.push("[warmly expressive]");
+
+      if (breath >= 85) controlTags.push("[very breathy]", "[soft whisper]");
+      else if (breath >= 65) controlTags.push("[breathy]", "[intimate]");
+      else if (breath >= 40) controlTags.push("[soft tone]");
+
+      return controlTags.length ? `${controlTags.join(" ")} ${text}` : text;
+    }
+
+    function stopSubtitleSync() {
+      if (subtitleTimer) {
+        clearInterval(subtitleTimer);
+        subtitleTimer = null;
+      }
+    }
+
+    function startSubtitleSync() {
+      stopSubtitleSync();
+      if (!subtitleSegments.length || !el.player.duration || !isFinite(el.player.duration)) return;
+      rebuildSubtitleTimeline(el.player.duration);
+
+      subtitleTimer = setInterval(() => {
+        const idx = getSubtitleIndexAtTime(el.player.currentTime || 0);
+        setActiveSubtitle(idx);
+      }, 120);
+    }
+
+    function renderSubtitleLines(lines) {
+      el.subtitleFull.innerHTML = "";
+      lines.forEach((line, idx) => {
+        const div = document.createElement("div");
+        div.className = "subtitle-line";
+        div.dataset.idx = String(idx);
+        div.textContent = line;
+        el.subtitleFull.appendChild(div);
+      });
+      currentSubtitleIndex = -1;
+    }
+
+    function setActiveSubtitle(idx) {
+      if (idx === currentSubtitleIndex) return;
+      currentSubtitleIndex = idx;
+      const nodes = el.subtitleFull.querySelectorAll(".subtitle-line");
+      nodes.forEach((n, i) => n.classList.toggle("active", i === idx));
+      const active = el.subtitleFull.querySelector(`.subtitle-line[data-idx="${idx}"]`);
+      if (active) {
+        active.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        el.subtitleCurrent.textContent = active.textContent || "";
+      } else {
+        el.subtitleCurrent.textContent = subtitleSegments[idx] || "";
+      }
+    }
+
+
+
+    function updateTimelineProgress() {
+      if (!el.player.duration || !isFinite(el.player.duration)) return;
+      const ratio = Math.max(0, Math.min(1, (el.player.currentTime || 0) / el.player.duration));
+      el.seekBar.value = String(Math.round(ratio * 1000));
+      
+      // 更新进度条的样式变量
+      el.seekBar.style.setProperty("--progress", `${ratio * 100}%`);
+      
+      const cur = formatTime(el.player.currentTime || 0);
+      const dur = formatTime(el.player.duration || 0);
+      el.timeText.textContent = `${cur} / ${dur}`;
+
+      if (subtitleSegments.length) {
+        if (!subtitleTimeline.length) rebuildSubtitleTimeline(el.player.duration);
+        setActiveSubtitle(getSubtitleIndexAtTime(el.player.currentTime || 0));
+      }
+    }
+
+    function formatTime(seconds) {
+      const s = Math.max(0, Math.floor(seconds));
+      const m = Math.floor(s / 60);
+      const r = s % 60;
+      return `${m}:${String(r).padStart(2, "0")}`;
+    }
+
+    function getManualPrompt() {
+      return localStorage.getItem("ROMANCE_LLM_SYSTEM_PROMPT") || "";
+    }
+
+    async function generateScript(input, targetSeconds = 0, _retried = false) {
+      const manualPrompt = getManualPrompt();
+      if (!manualPrompt) {
+        throw new Error("未配置人工提示词，请先到配置页手动填写并保存。");
+      }
+
+      let userMessage = input;
+      if (targetSeconds > 0) {
+        const minutes = Math.round(targetSeconds / 60);
+        const totalChars = Math.max(1500, Math.round(targetSeconds * 8));
+        userMessage += `\n\n【极其重要的时长和字数要求】目标总时长为 ${minutes} 分钟（${targetSeconds} 秒）。\n- 你必须输出大量内容，总字数不少于 ${totalChars} 个字符。\n- 请写成一段连贯自然的台词，有层次感、情绪递进，不要分段标号。\n- 用丰富的细节描写动作、感受、环境、心理活动。\n- 不要偷懒缩短内容！不要重复相似句子！\n- 如果是英文输出，至少 ${Math.round(totalChars / 5)} 个单词。`;
+      }
+
+      const formatGuard = `\n\n【输出格式强制要求】你必须直接输出连续的剧本台词纯文本内容，不要分段编号，不要用 JSON 格式，不要加任何标题或结构标记。严禁输出任何 HTML、代码、Markdown 代码块或编程内容。绝对不要返回 <!DOCTYPE>、<html>、<meta> 等任何 HTML 标签。`;
+
+      const body = {
+        model: LLM_MODEL,
+        messages: [
+          { role: "system", content: manualPrompt + formatGuard },
+          { role: "user", content: userMessage }
+        ]
+      };
+
+      const res = await fetch(LLM_API_URL, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${XAI_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body)
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error("LLM 接口错误: " + parseApiError(data, `HTTP ${res.status}`));
+
+      let raw = data?.choices?.[0]?.message?.content?.trim();
+      if (!raw) throw new Error("LLM 返回了空文本。");
+
+      // 去掉 Markdown 代码块包裹
+      raw = raw.replace(/^```[\w]*\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+
+      // 如果 LLM 返回了 HTML/代码，自动重试一次
+      if (/^\s*<!DOCTYPE|^\s*<html|^\s*<meta|^\s*<head/i.test(raw)) {
+        if (!_retried) {
+          console.warn("LLM 返回了 HTML，自动重试...");
+          return generateScript(input, targetSeconds, true);
+        }
+        throw new Error("LLM 多次返回 HTML 代码而非剧本内容，请检查系统提示词配置。");
+      }
+
+      // 尝试从 JSON 中提取（兼容旧 prompt 可能还返回 JSON 的情况）
+      try {
+        const parsed = JSON.parse(raw);
+        const parts = Object.values(parsed).filter(v => typeof v === "string" && v.trim());
+        if (parts.length) raw = parts.join("\n\n");
+      } catch {}
+
+      if (!raw.trim()) throw new Error("LLM 返回内容为空。");
+
+      // 如果有目标时长，检查内容是否足够。不够则追加扩写
+      if (targetSeconds > 0) {
+        const minChars = Math.round(targetSeconds * 6);
+        if (raw.length < minChars && !_retried) {
+          console.warn(`内容太短(${raw.length}字 < 需要${minChars}字)，追加扩写...`);
+          setStatus(`内容不足(${raw.length}字)，正在扩写至${minChars}字以上...`);
+          const expandBody = {
+            model: LLM_MODEL,
+            messages: [
+              { role: "system", content: "你是一个创意写作扩写助手。用户给你一段台词文字，你需要将它大幅扩展到原来的3-4倍长度，保持相同的风格、情绪和主题，加入更多细节描写、感官描写、心理描写和环境描写。直接输出扩写后的连续纯文本，不要加任何标题、标签或格式。" },
+              { role: "user", content: `请将以下台词扩写到至少${minChars}个字符，保持风格一致，输出连贯自然的文本：\n\n${raw}` }
+            ]
+          };
+          const expandRes = await fetch(LLM_API_URL, {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${XAI_API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify(expandBody)
+          });
+          const expandData = await expandRes.json().catch(() => null);
+          let expandedText = expandData?.choices?.[0]?.message?.content?.trim() || "";
+          expandedText = expandedText.replace(/^```[\w]*\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+          if (expandedText.length > raw.length) raw = expandedText;
+        }
+      }
+
+      return raw;
+    }
+
+    async function synthesizeVoice(text) {
+      const provider = ttsProviderEl.value;
+      if (provider === "fish") {
+        return synthesizeVoiceFish(text);
+      }
+      if (provider === "sexyvoice") {
+        return synthesizeVoiceSexyVoice(text);
+      }
+      return synthesizeVoiceXAI(text);
+    }
+
+    async function synthesizeVoiceXAI(text) {
+      const body = {
+        text,
+        voice_id: XAI_TTS_VOICE_ID,
+        language: "en"
+      };
+
+      const res = await fetch("https://api.x.ai/v1/tts", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${XAI_TTS_API_KEY}`,
+          "Accept": "audio/mpeg",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body)
+      });
+
+      if (!res.ok) {
+        const textErr = await res.text().catch(() => "");
+        let data = null;
+        try { data = textErr ? JSON.parse(textErr) : null; } catch { data = textErr; }
+        throw new Error("xAI TTS 接口错误: " + parseApiError(data, `HTTP ${res.status}`));
+      }
+
+      return res.arrayBuffer();
+    }
+
+    async function synthesizeVoiceFish(text) {
+      const apiKey = fishApiKeyEl.value.trim();
+      if (!apiKey) throw new Error("请先填写 Fish Audio API Key。");
+
+      const fishModel = fishModelEl.value.trim() || "s1";
+      const fishReferenceId = fishReferenceIdEl.value.trim();
+      const controlledText = fishModel === "s2-pro" ? applyFishS2ProControls(text) : text;
+      const fishTemperature = Number(fishTemperatureEl.value || 100) / 100;
+      const buildFishBody = (includeReferenceId = true) => {
+        const payload = {
+          text: controlledText,
+          format: "mp3",
+          normalize: true,
+          latency: "balanced",
+          temperature: fishTemperature
+        };
+        if (includeReferenceId && fishReferenceId) payload.reference_id = fishReferenceId;
+        return payload;
+      };
+
+      const requestFish = async (url, includeReferenceId = true) => {
+        return fetch(url, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Accept": "audio/mpeg",
+            "Content-Type": "application/json",
+            "model": fishModel
+          },
+          body: JSON.stringify(buildFishBody(includeReferenceId))
+        });
+      };
+
+      let res = null;
+      const viaSameOriginProxy = window.location.origin && !window.location.origin.startsWith("file:");
+      const candidateUrls = [];
+      if (viaSameOriginProxy) candidateUrls.push(FISH_TTS_API_URL);
+      candidateUrls.push(FISH_TTS_LOCAL_PROXY_URL);
+
+      for (const url of candidateUrls) {
+        try {
+          res = await requestFish(url);
+          // 同源代理偶发返回 HTML 404（未走到新 server.py），继续尝试下一个候选地址
+          if (res.status === 404) {
+            const maybeHtml = await res.text().catch(() => "");
+            const isHtml404 = /^\s*<!DOCTYPE html>|^\s*<!DOCTYPE HTML>/i.test(maybeHtml);
+            if (isHtml404) continue;
+          }
+          break;
+        } catch (err) {
+          // ignore and continue trying next candidate URL
+        }
+      }
+
+      if (!res) {
+        throw new Error(
+          "Fish Audio 请求失败：本地代理不可用。请通过 http://localhost:8080 打开页面，并确认 server.py 正在运行。"
+        );
+      }
+
+      if (!res.ok) {
+        const textErr = await res.text().catch(() => "");
+        let data = null;
+        try { data = textErr ? JSON.parse(textErr) : null; } catch { data = textErr; }
+        const parsedError = parseApiError(data, `HTTP ${res.status}`);
+        if (fishReferenceId && /Reference not found/i.test(parsedError)) {
+          // If a custom voice ID is invalid, retry with Fish's default voice so generation can still proceed.
+          let fallbackRes = null;
+          for (const url of candidateUrls) {
+            try {
+              fallbackRes = await requestFish(url, false);
+              if (fallbackRes.ok) {
+                fishReferenceIdEl.value = "";
+                localStorage.removeItem("FISH_REFERENCE_ID");
+                return fallbackRes.arrayBuffer();
+              }
+            } catch {
+              // ignore and keep trying fallback URLs
+            }
+          }
+        }
+        const extra = !viaSameOriginProxy
+          ? "（当前页面不是从 localhost 服务打开，建议改用 http://localhost:8080 ）"
+          : "";
+        throw new Error(`Fish Audio TTS 接口错误: ${parsedError}（model=${fishModel}）` + extra);
+      }
+
+      return res.arrayBuffer();
+    }
+
+    async function synthesizeVoiceSexyVoice(text) {
+      const apiKey = svApiKeyEl.value.trim();
+      if (!apiKey) throw new Error("请先填写 SexyVoice API Key。");
+
+      // SexyVoice Gemini 语音每次最多 1000 字符，需要分块
+      const MAX_CHUNK = 950;
+      const chunks = [];
+      let remaining = text;
+      while (remaining.length > 0) {
+        if (remaining.length <= MAX_CHUNK) {
+          chunks.push(remaining);
+          break;
+        }
+        // 在句子边界分割
+        let cutPoint = remaining.lastIndexOf(".", MAX_CHUNK);
+        if (cutPoint < MAX_CHUNK * 0.5) cutPoint = remaining.lastIndexOf(" ", MAX_CHUNK);
+        if (cutPoint < MAX_CHUNK * 0.3) cutPoint = MAX_CHUNK;
+        chunks.push(remaining.slice(0, cutPoint + 1).trim());
+        remaining = remaining.slice(cutPoint + 1).trim();
+      }
+
+      const audioBuffers = [];
+      for (let ci = 0; ci < chunks.length; ci++) {
+        const chunk = chunks[ci];
+        // 根据选中的声音自动选择对应的 model
+        const selectedOption = svVoiceEl.options[svVoiceEl.selectedIndex];
+        const voiceModel = selectedOption?.dataset?.model || "gpro";
+        const body = {
+          model: voiceModel,
+          voice: svVoiceEl.value,
+          input: chunk,
+          style: svStyleEl.value.trim() || "warm"
+        };
+
+        // 带重试的请求（最多 3 次）
+        let lastErr = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            if (attempt > 0) {
+              console.warn(`SexyVoice chunk ${ci+1} 第 ${attempt+1} 次重试...`);
+              await new Promise(r => setTimeout(r, 2000 * attempt)); // 等待 2s/4s
+            }
+            const res = await fetch(SV_API_URL, {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${apiKey}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify(body)
+            });
+
+            if (!res.ok) {
+              const errData = await res.json().catch(() => null);
+              throw new Error("SexyVoice TTS 错误: " + parseApiError(errData, `HTTP ${res.status}`));
+            }
+
+            const data = await res.json();
+            const audioUrl = data?.url;
+            if (!audioUrl) throw new Error("SexyVoice 未返回音频 URL。");
+
+            // 通过本地代理下载音频文件（绕 CORS）
+            const audioRes = await fetch("/proxy/audio?url=" + encodeURIComponent(audioUrl));
+            if (!audioRes.ok) throw new Error("SexyVoice 音频下载失败: HTTP " + audioRes.status);
+            audioBuffers.push(await audioRes.arrayBuffer());
+            lastErr = null;
+            break; // 成功，跳出重试循环
+          } catch (e) {
+            lastErr = e;
+          }
+        }
+        if (lastErr) throw lastErr;
+      }
+
+      // 如果只有一个 chunk，直接返回
+      if (audioBuffers.length === 1) return audioBuffers[0];
+
+      // 多个 chunk 拼接成一个
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const ctx = new AudioCtx();
+      const decoded = [];
+      for (const b of audioBuffers) decoded.push(await ctx.decodeAudioData(b.slice(0)));
+      const sampleRate = decoded[0].sampleRate;
+      const channels = Math.max(...decoded.map(d => d.numberOfChannels));
+      const totalLength = decoded.reduce((s, d) => s + d.length, 0);
+      const offline = new OfflineAudioContext(channels, totalLength, sampleRate);
+      let offset = 0;
+      for (const d of decoded) {
+        const src = offline.createBufferSource();
+        src.buffer = d;
+        src.connect(offline.destination);
+        src.start(offset / sampleRate);
+        offset += d.length;
+      }
+      const rendered = await offline.startRendering();
+      await ctx.close();
+      const blob = audioBufferToWavBlob(rendered);
+      return await blob.arrayBuffer();
+    }
+
+    async function mergeAudioBuffers(buffers, targetSeconds = 0) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) throw new Error("当前浏览器不支持 Web Audio API。");
+      const ctx = new AudioCtx();
+      const decoded = [];
+
+      for (const b of buffers) {
+        decoded.push(await ctx.decodeAudioData(b.slice(0)));
+      }
+
+      const sampleRate = decoded[0].sampleRate;
+      const channels = Math.max(...decoded.map((d) => d.numberOfChannels));
+      const baseLength = decoded.reduce((sum, d) => sum + d.length, 0);
+      const baseDuration = baseLength / sampleRate;
+
+      // 如果目标时长大于实际音频，通过循环填充达到目标
+      let finalLength = baseLength;
+      let maxRounds = 1;
+      if (targetSeconds > 0 && targetSeconds > baseDuration) {
+        maxRounds = Math.ceil(targetSeconds / baseDuration);
+        finalLength = Math.ceil(targetSeconds * sampleRate);
+      }
+
+      const offline = new OfflineAudioContext(channels, finalLength, sampleRate);
+
+      let offset = 0;
+      for (let round = 0; round < maxRounds && offset < finalLength; round++) {
+        for (const d of decoded) {
+          if (offset >= finalLength) break;
+          const remaining = finalLength - offset;
+          const chunkLength = Math.min(d.length, remaining);
+          const src = offline.createBufferSource();
+          const normalized = offline.createBuffer(channels, chunkLength, sampleRate);
+          for (let ch = 0; ch < channels; ch++) {
+            const data = normalized.getChannelData(ch);
+            if (ch < d.numberOfChannels) {
+              const source = d.getChannelData(ch);
+              data.set(source.subarray(0, chunkLength));
+            }
+          }
+          src.buffer = normalized;
+          src.connect(offline.destination);
+          src.start(offset / sampleRate);
+          offset += normalized.length;
+        }
+      }
+
+      const rendered = await offline.startRendering();
+      await ctx.close();
+      return audioBufferToWavBlob(rendered);
+    }
+
+    function audioBufferToWavBlob(buffer) {
+      const numChannels = buffer.numberOfChannels;
+      const sampleRate = buffer.sampleRate;
+      const format = 1;
+      const bitDepth = 16;
+      const bytesPerSample = bitDepth / 8;
+      const blockAlign = numChannels * bytesPerSample;
+      const dataLength = buffer.length * blockAlign;
+      const wav = new ArrayBuffer(44 + dataLength);
+      const view = new DataView(wav);
+
+      const writeString = (offset, str) => {
+        for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+      };
+
+      writeString(0, "RIFF");
+      view.setUint32(4, 36 + dataLength, true);
+      writeString(8, "WAVE");
+      writeString(12, "fmt ");
+      view.setUint32(16, 16, true);
+      view.setUint16(20, format, true);
+      view.setUint16(22, numChannels, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * blockAlign, true);
+      view.setUint16(32, blockAlign, true);
+      view.setUint16(34, bitDepth, true);
+      writeString(36, "data");
+      view.setUint32(40, dataLength, true);
+
+      let offset = 44;
+      for (let i = 0; i < buffer.length; i++) {
+        for (let ch = 0; ch < numChannels; ch++) {
+          const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i] || 0));
+          view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+          offset += 2;
+        }
+      }
+      return new Blob([wav], { type: "audio/wav" });
+    }
+
+    async function run() {
+      const input = el.keywords.value.trim();
+      if (!input) return alert("请先输入关键词。");
+
+      if (XAI_API_KEY.includes("YOUR_XAI_API_KEY")) {
+        setStatus("请先填写 xAI API Key。", "err");
+        return;
+      }
+      if (ttsProviderEl.value === "xai" && XAI_TTS_API_KEY.includes("YOUR_XAI_TTS_API_KEY")) {
+        setStatus("请先填写 xAI TTS API Key。", "err");
+        return;
+      }
+      if (ttsProviderEl.value === "fish" && !fishApiKeyEl.value.trim()) {
+        setStatus("请先填写 Fish Audio API Key。", "err");
+        return;
+      }
+      if (ttsProviderEl.value === "sexyvoice" && !svApiKeyEl.value.trim()) {
+        setStatus("请先填写 SexyVoice API Key。", "err");
+        return;
+      }
+
+      el.btn.disabled = true;
+      stopSubtitleSync();
+      subtitleSegments = [];
+      subtitleTimeline = [];
+      currentSubtitleIndex = -1;
+      el.subtitleCurrent.textContent = "处理中...";
+      renderSubtitleLines([]);
+      el.seekBar.value = "0";
+      el.seekBar.style.setProperty("--progress", "0%");
+      el.timeText.textContent = "0:00 / 0:00";
+      el.player.pause();
+      el.player.removeAttribute("src");
+      el.player.load();
+
+      if (lastAudioObjectUrl) {
+        URL.revokeObjectURL(lastAudioObjectUrl);
+        lastAudioObjectUrl = "";
+      }
+
+      try {
+        const targetSeconds = Number(el.targetDuration.value || 0);
+        setStatus(targetSeconds ? `正在生成 ${Math.round(targetSeconds / 60)} 分钟台词...` : "正在生成台词...");
+        const scriptText = await generateScript(input, targetSeconds);
+        subtitleSegments = splitSubtitleSegments(scriptText);
+        renderSubtitleLines(subtitleSegments);
+        el.subtitleCurrent.textContent = subtitleSegments[0] || "";
+
+        const ttsText = toTtsFriendlyText(scriptText);
+        setStatus("正在合成语音...");
+        const audioBuffers = [await synthesizeVoice(ttsText)];
+
+        setStatus("正在拼接音频...");
+        const mergedBlob = await mergeAudioBuffers(audioBuffers, targetSeconds);
+        const audioUrl = URL.createObjectURL(mergedBlob);
+        lastAudioObjectUrl = audioUrl;
+
+        setStatus("正在播放音频...");
+        el.player.src = audioUrl;
+        el.player.onloadedmetadata = () => {
+          startSubtitleSync();
+          updateTimelineProgress();
+        };
+        el.player.onplay = () => {
+          startSubtitleSync();
+          el.playBtn.querySelector(".play-icon").textContent = "⏸";
+        };
+        el.player.onpause = () => {
+          stopSubtitleSync();
+          el.playBtn.querySelector(".play-icon").textContent = "▶";
+        };
+        el.player.ontimeupdate = updateTimelineProgress;
+        el.player.onseeking = updateTimelineProgress;
+        el.player.onended = () => {
+          stopSubtitleSync();
+          updateTimelineProgress();
+          el.playBtn.querySelector(".play-icon").textContent = "▶";
+          if (subtitleSegments.length) {
+            setActiveSubtitle(subtitleSegments.length - 1);
+          }
+        };
+
+        try {
+          await el.player.play();
+          setStatus("已开始播放。", "ok");
+        } catch {
+          setStatus("音频已就绪，请手动点击播放。", "ok");
+        }
+      } catch (err) {
+        const msg = err?.message || "网络错误";
+        setStatus("错误: " + msg, "err");
+        console.error(err);
+      } finally {
+        el.btn.disabled = false;
+      }
+    }
+
+    async function runDirectTts() {
+      const input = el.directTtsText.value.trim();
+      if (!input) return alert("请先输入要转语音的对话内容。");
+
+      if (ttsProviderEl.value === "xai" && XAI_TTS_API_KEY.includes("YOUR_XAI_TTS_API_KEY")) {
+        setStatus("请先填写 xAI TTS API Key。", "err");
+        return;
+      }
+      if (ttsProviderEl.value === "fish" && !fishApiKeyEl.value.trim()) {
+        setStatus("请先填写 Fish Audio API Key。", "err");
+        return;
+      }
+      if (ttsProviderEl.value === "sexyvoice" && !svApiKeyEl.value.trim()) {
+        setStatus("请先填写 SexyVoice API Key。", "err");
+        return;
+      }
+
+      el.directTtsBtn.disabled = true;
+      stopSubtitleSync();
+      subtitleSegments = splitSubtitleSegments(input);
+      subtitleTimeline = [];
+      currentSubtitleIndex = -1;
+      renderSubtitleLines(subtitleSegments);
+      el.subtitleCurrent.textContent = subtitleSegments[0] || "处理中...";
+      el.seekBar.value = "0";
+      el.seekBar.style.setProperty("--progress", "0%");
+      el.timeText.textContent = "0:00 / 0:00";
+      el.player.pause();
+      el.player.removeAttribute("src");
+      el.player.load();
+
+      if (lastAudioObjectUrl) {
+        URL.revokeObjectURL(lastAudioObjectUrl);
+        lastAudioObjectUrl = "";
+      }
+
+      try {
+        setStatus("正在直接合成语音...");
+        const ttsText = toTtsFriendlyText(input);
+        const audioBuffer = await synthesizeVoice(ttsText);
+        const mergedBlob = await mergeAudioBuffers([audioBuffer], 0);
+        const audioUrl = URL.createObjectURL(mergedBlob);
+        lastAudioObjectUrl = audioUrl;
+
+        el.player.src = audioUrl;
+        el.player.onloadedmetadata = () => {
+          startSubtitleSync();
+          updateTimelineProgress();
+        };
+        el.player.onplay = () => {
+          startSubtitleSync();
+          el.playBtn.querySelector(".play-icon").textContent = "⏸";
+        };
+        el.player.onpause = () => {
+          stopSubtitleSync();
+          el.playBtn.querySelector(".play-icon").textContent = "▶";
+        };
+        el.player.ontimeupdate = updateTimelineProgress;
+        el.player.onseeking = updateTimelineProgress;
+        el.player.onended = () => {
+          stopSubtitleSync();
+          updateTimelineProgress();
+          el.playBtn.querySelector(".play-icon").textContent = "▶";
+          if (subtitleSegments.length) {
+            setActiveSubtitle(subtitleSegments.length - 1);
+          }
+        };
+
+        try {
+          await el.player.play();
+          setStatus("直接 TTS 合成完成，已开始播放。", "ok");
+        } catch {
+          setStatus("直接 TTS 合成完成，请手动点击播放。", "ok");
+        }
+      } catch (err) {
+        const msg = err?.message || "网络错误";
+        setStatus("错误: " + msg, "err");
+        console.error(err);
+      } finally {
+        el.directTtsBtn.disabled = false;
+      }
+    }
+
+    el.playBtn.addEventListener("click", async () => {
+      if (!el.player.src) return;
+      if (el.player.paused) {
+        try { await el.player.play(); } catch {}
+      } else {
+        el.player.pause();
+      }
+    });
+    el.seekBar.addEventListener("input", () => {
+      if (!el.player.duration || !isFinite(el.player.duration)) return;
+      const ratio = Number(el.seekBar.value) / 1000;
+      el.player.currentTime = ratio * el.player.duration;
+      updateTimelineProgress();
+    });
+    el.btn.addEventListener("click", run);
+    el.directTtsBtn.addEventListener("click", runDirectTts);
+  </script>
+</body>
+</html>
